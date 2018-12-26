@@ -9,6 +9,7 @@ import Control.Monad.Catch
 
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Monoid
 import Data.Typeable
 
 import API
@@ -86,7 +87,10 @@ instance {-# OVERLAPPING #-} Access Address Account M where
 -- Actions over accounts
 touchAccount   addr   = change addr $ \acc -> acc { accountNonce   = accountNonce   acc + 1 }
 unTouchAccount addr   = change addr $ \acc -> acc { accountNonce   = accountNonce   acc - 1 }
-changeBalance  addr d = change addr $ \acc -> acc { accountBalance = accountBalance acc + d }
+changeBalance  addr d = do
+    acc <- retrieve addr
+    change addr $ \acc -> acc { accountBalance = accountBalance acc + d }
+    return $ Map.singleton addr acc
 
 ---- Domain-related Wrappers --------------------------------------------------
 
@@ -150,15 +154,10 @@ instance Apply Pay PayM Proof where
         check (author /= whom)    $ Err "can't pay to self"
         check (howMuch > 0)       $ Err "can't pay negative amount"
 
-        changeBalance author (-howMuch)
-        changeBalance whom   ( howMuch)
+        p1 <- changeBalance author (-howMuch)
+        p2 <- changeBalance whom   ( howMuch)
 
-        let proof = Map.fromList
-                [ (author, src)
-                , (whom,   dst)
-                ]
-
-        return (proof, UnPay action)
+        return (p1 <> p2, UnPay action)
 
     undo (UnPay (Pay whom howMuch)) = do
         Author author _ <- ask
@@ -169,15 +168,10 @@ instance Apply Pay PayM Proof where
         check (author /= whom) $ Err "can't unpay for to self"
         check (howMuch > 0)    $ Err "ca't unpay negative amount"
 
-        changeBalance author ( howMuch)
-        changeBalance whom   (-howMuch)
+        p1 <- changeBalance author ( howMuch)
+        p2 <- changeBalance whom   (-howMuch)
 
-        let proof = Map.fromList
-                [ (author, src)
-                , (whom,   dst)
-                ]
-
-        return proof
+        return (p1 <> p2)
 
 ---- Fee payment --------------------------------------------------------------
 
@@ -197,15 +191,10 @@ instance Apply PayFees PayM Proof where
 
         check (source > 5) $ Err "can't afford fees"
 
-        changeBalance author (-5)
-        changeBalance miner  ( 5)
+        p1 <- changeBalance author (-5)
+        p2 <- changeBalance miner  ( 5)
 
-        let proof = Map.fromList
-                [ (author, src)
-                , (miner,  dst)
-                ]
-
-        return (proof, UnPayFees PayFees)
+        return (p1 <> p2, UnPayFees PayFees)
 
     undo (UnPayFees PayFees) = do
         Author author _         <- ask
@@ -214,15 +203,10 @@ instance Apply PayFees PayM Proof where
         src@ (Account _ source) <- retrieve author
         dst                     <- retrieve miner
 
-        changeBalance author ( 5)
-        changeBalance miner  (-5)
+        p1 <- changeBalance author ( 5)
+        p2 <- changeBalance miner  (-5)
 
-        let proof = Map.fromList
-                [ (author, src)
-                , (miner,  dst)
-                ]
-
-        return (proof)
+        return (p1 <> p2)
 
 ---- Testing Area -------------------------------------------------------------
 
