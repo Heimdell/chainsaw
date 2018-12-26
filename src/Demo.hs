@@ -135,7 +135,11 @@ data Pay = Pay { payWhom :: Address, payHowMuch :: Integer }
 
 type PayM = ReaderT Author M
 
-instance Apply Pay Pay PayM Proof where
+instance
+    Access Address Account m
+  =>
+    Apply Pay Pay (ReaderT Author m) Proof
+  where
     apply action@ (Pay whom howMuch) = do
         Author author _ <- ask
 
@@ -170,7 +174,13 @@ instance Apply Pay Pay PayM Proof where
 data PayFees = PayFees
     deriving Show
 
-instance Apply PayFees PayFees PayM Proof where
+instance
+    ( Access Address Account (ReaderT Env m)
+    , Monad m
+    )
+  =>
+      Apply PayFees PayFees (ReaderT Author (ReaderT Env m)) Proof
+  where
     apply PayFees = do
         Author author _         <- ask
         Miner miner             <- lift $ asks envMiner
