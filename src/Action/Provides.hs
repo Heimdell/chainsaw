@@ -14,23 +14,16 @@ data Provides e a = Provides e a
     deriving (Show, Generic)
 
 instance
-    ( Apply a (ReaderT e m) res
+    ( Apply a undo (ReaderT e m) res
     , Monad m
     , Show e
     )
   =>
-      Apply (Provides e a) m res
+      Apply (Provides e a) (Provides e undo) m res
   where
-    newtype Undo (Provides e a)
-        = UndoProvides
-            { getUndoProvides :: Provides e (Undo a)
-            }
-
     apply (Provides env a) = do
         (res, undo) <- apply a `runReaderT` env
-        return (res, UndoProvides (Provides env undo))
+        return (res, Provides env undo)
 
-    undo (UndoProvides (Provides env a)) = do
+    undo (Provides env a) = do
         undo a `runReaderT` env
-
-deriving instance (Show (Undo a), Show e) => Show (Undo (Provides e a))

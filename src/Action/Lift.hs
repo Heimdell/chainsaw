@@ -15,23 +15,16 @@ newtype Lift a = Lift a
     deriving (Show, Generic)
 
 instance
-    ( Apply a m res
+    ( Apply a undo m res
     , MonadTrans t
     , Monad (t m)
     )
   =>
-      Apply (Lift a) (t m) res
+      Apply (Lift a) (Lift undo) (t m) res
   where
-    newtype Undo (Lift a)
-        = UndoLift
-            { getUndoLift :: Lift (Undo a)
-            }
-
     apply (Lift a) = do
         (res, undo) <- lift $ apply a
-        return (res, UndoLift (Lift undo))
+        return (res, Lift undo)
 
-    undo (UndoLift (Lift a)) = do
+    undo (Lift a) = do
         lift $ undo a
-
-deriving instance (Show (Undo a)) => Show (Undo (Lift a))

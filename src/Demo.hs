@@ -97,15 +97,13 @@ changeBalance  addr d = do
 newtype CheckNonce a = CheckNonce a deriving Show
 
 instance
-    ( Apply a (ReaderT Author m) r
+    ( Apply a undo (ReaderT Author m) r
     , Access Address Account m
     , MonadCatch m
     )
   =>
-      Apply (CheckNonce a) (ReaderT Author m) r
+      Apply (CheckNonce a) (CheckNonce undo) (ReaderT Author m) r
   where
-    data Undo (CheckNonce a) = UndoCheckNonce (Undo a)
-
     apply (CheckNonce a) = do
         Author author nonce <- ask
         nonce'              <- retrieves author accountNonce
@@ -116,9 +114,9 @@ instance
 
         (res, undo) <- apply a
 
-        return (res, UndoCheckNonce undo)
+        return (res, CheckNonce undo)
 
-    undo (UndoCheckNonce a) = do
+    undo (CheckNonce a) = do
         res <- undo a
 
         Author author nonce <- ask
@@ -130,9 +128,6 @@ instance
 
         return res
 
-
-deriving instance Show (Undo a) => Show (Undo (CheckNonce a))
-
 ---- Transaction --------------------------------------------------------------
 
 data Pay = Pay { payWhom :: Address, payHowMuch :: Integer }
@@ -140,10 +135,7 @@ data Pay = Pay { payWhom :: Address, payHowMuch :: Integer }
 
 type PayM = ReaderT Author M
 
-instance Apply Pay PayM Proof where
-    data Undo Pay = UnPay Pay
-        deriving Show
-
+instance Apply Pay Pay PayM Proof where
     apply action@ (Pay whom howMuch) = do
         Author author _ <- ask
 
@@ -157,9 +149,9 @@ instance Apply Pay PayM Proof where
         p1 <- changeBalance author (-howMuch)
         p2 <- changeBalance whom   ( howMuch)
 
-        return (p1 <> p2, UnPay action)
+        return (p1 <> p2, action)
 
-    undo (UnPay (Pay whom howMuch)) = do
+    undo (Pay whom howMuch) = do
         Author author _ <- ask
 
         src@ (Account _ source) <- retrieve author
@@ -178,10 +170,7 @@ instance Apply Pay PayM Proof where
 data PayFees = PayFees
     deriving Show
 
-instance Apply PayFees PayM Proof where
-    data Undo PayFees = UnPayFees PayFees
-        deriving Show
-
+instance Apply PayFees PayFees PayM Proof where
     apply PayFees = do
         Author author _         <- ask
         Miner miner             <- lift $ asks envMiner
@@ -194,9 +183,9 @@ instance Apply PayFees PayM Proof where
         p1 <- changeBalance author (-5)
         p2 <- changeBalance miner  ( 5)
 
-        return (p1 <> p2, UnPayFees PayFees)
+        return (p1 <> p2, PayFees)
 
-    undo (UnPayFees PayFees) = do
+    undo PayFees = do
         Author author _         <- ask
         Miner miner             <- lift $ asks envMiner
 

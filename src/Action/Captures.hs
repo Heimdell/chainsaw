@@ -18,25 +18,18 @@ class Has e es | es -> e where
     view :: es -> e
 
 instance
-    ( Apply a (ReaderT e m) res
+    ( Apply a undo (ReaderT e m) res
     , Monad m
     , Has e es
     )
   =>
-      Apply (Captures e a) (ReaderT es m) res
+      Apply (Captures e a) (Captures e undo) (ReaderT es m) res
   where
-    newtype Undo (Captures e a)
-        = UndoCaptures
-            { getUndoCaptures :: Captures e (Undo a)
-            }
-
     apply (Captures a) = do
         env <- asks view
         (res, undo) <- lift $ apply a `runReaderT` env
-        return (res, UndoCaptures (Captures undo))
+        return (res, (Captures undo))
 
-    undo (UndoCaptures (Captures a)) = do
+    undo (Captures a) = do
         env <- asks view
         lift $ undo a `runReaderT` env
-
-deriving instance (Show (Undo a)) => Show (Undo (Captures e a))

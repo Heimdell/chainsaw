@@ -6,11 +6,18 @@ import Control.Monad.Catch
 
 import Data.Typeable
 
-class (Monad m, Show action, Show (Undo action)) => Apply action m result | action -> result where
-    data Undo action :: *
-
-    apply :: action       -> m (result, Undo action)
-    undo  :: Undo action  -> m  result
+class
+    ( Monad m
+    , Show action
+    , Show undo
+    )
+  =>
+      Apply action undo m result
+        | action -> result undo
+        , undo   -> action
+  where
+    apply :: action -> m (result, undo)
+    undo  :: undo   -> m  result
 
 class (MonadThrow m, Show k, Typeable k) => Access k v m | k -> v where
     tryGet :: k -> m (Maybe v)
