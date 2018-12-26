@@ -141,10 +141,8 @@ instance
     Apply Pay Pay (ReaderT Author m) Proof
   where
     apply action@ (Pay whom howMuch) = do
-        Author author _ <- ask
-
-        src@ (Account _ source) <- retrieve author
-        dst                     <- retrieve whom
+        Author  author _ <- ask
+        Account _ source <- retrieve author
 
         check (source >= howMuch) $ Err "author dont have enough money"
         check (author /= whom)    $ Err "can't pay to self"
@@ -156,10 +154,8 @@ instance
         return (p1 <> p2, action)
 
     undo (Pay whom howMuch) = do
-        Author author _ <- ask
-
-        src@ (Account _ source) <- retrieve author
-        dst                     <- retrieve whom
+        Author  author _ <- ask
+        Account _ source <- retrieve author
 
         check (author /= whom) $ Err "can't unpay for to self"
         check (howMuch > 0)    $ Err "can't unpay negative amount"
@@ -182,11 +178,9 @@ instance
       Apply PayFees PayFees (ReaderT Author (ReaderT Env m)) Proof
   where
     apply PayFees = do
-        Author author _         <- ask
-        Miner miner             <- lift $ asks envMiner
-
-        src@ (Account _ source) <- retrieve author
-        dst                     <- retrieve miner
+        Author  author _ <- ask
+        Miner   miner    <- lift $ asks envMiner
+        Account _ source <- retrieve author
 
         check (source > 5) $ Err "can't afford fees"
 
@@ -196,11 +190,9 @@ instance
         return (p1 <> p2, PayFees)
 
     undo PayFees = do
-        Author author _         <- ask
-        Miner miner             <- lift $ asks envMiner
-
-        src@ (Account _ source) <- retrieve author
-        dst                     <- retrieve miner
+        Author  author _ <- ask
+        Miner   miner    <- lift $ asks envMiner
+        Account _ source <- retrieve author
 
         p1 <- changeBalance author ( 5)
         p2 <- changeBalance miner  (-5)
