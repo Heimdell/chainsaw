@@ -126,7 +126,7 @@ instance
 
         unTouchAccount author
 
-        check (nonce == nonce') $ Err "nonce mismatch in undo"
+        check (nonce == nonce' - 1) $ Err "nonce mismatch in undo"
 
         return res
 
@@ -212,13 +212,15 @@ instance Apply PayFees PayM Proof where
 
 run :: IO Status
 run =
-    test $ apply $ Provides (Author 2 0)
-        ( CheckNonce
-            [ Pay 3 10
-            , Pay 1 55
-            ]
-        , PayFees
-        )
+    test $ do
+        (res, undoer) <- apply $ Provides (Author 2 0)
+            ( CheckNonce
+                [ Pay 3 10
+                , Pay 1 55
+                ]
+            , PayFees
+            )
+        undo undoer
 
 test action = do
     action
