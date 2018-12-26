@@ -166,7 +166,7 @@ instance Apply Pay PayM Proof where
         dst                     <- retrieve whom
 
         check (author /= whom) $ Err "can't unpay for to self"
-        check (howMuch > 0)    $ Err "ca't unpay negative amount"
+        check (howMuch > 0)    $ Err "can't unpay negative amount"
 
         p1 <- changeBalance author ( howMuch)
         p2 <- changeBalance whom   (-howMuch)
