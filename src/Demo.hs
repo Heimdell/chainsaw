@@ -264,9 +264,9 @@ run = do
     test $ do
         st <- get
 
-        liftIO $ putStrLn $ "Applying: " ++ show (pretty tx)
-        liftIO $ putStrLn ""
         liftIO $ putStrLn $ "State: " ++ show (pretty st)
+        liftIO $ putStrLn ""
+        liftIO $ putStrLn $ "Applying: " ++ show (pretty tx)
         liftIO $ putStrLn ""
 
         (res, undoer) <- apply tx
