@@ -33,6 +33,7 @@ type Nonce = Integer
 data TheFees = TheFees { k :: Float, c :: Int }
     deriving Show
 
+getFee :: Reading Fees TheFees m => Int -> m Int
 getFee txSize = do
     TheFees { k, c } <- retrieve Fees
     return $ c + round (k * fromIntegral txSize)
@@ -63,31 +64,31 @@ type Proof = Map Address Account
 ---- On-chain access ----------------------------------------------------------
 
 -- This instance will autolift the access
--- instance
---     ( Access k v m
---     , MonadThrow m
---     , MonadThrow (t m)
---     , MonadTrans t
---     , Show k
---     , Typeable k
---     )
---   =>
---       Reading k v (t m)
---   where
---     tryGet k   = lift $ tryGet k
+instance
+    ( Reading k v m
+    , MonadThrow m
+    , MonadThrow (t m)
+    , MonadTrans t
+    , Show k
+    , Typeable k
+    )
+  =>
+      Reading k v (t m)
+  where
+    tryGet k   = lift $ tryGet k
 
--- instance
---     ( Access k v m
---     , MonadThrow m
---     , MonadThrow (t m)
---     , MonadTrans t
---     , Show k
---     , Typeable k
---     )
---   =>
---       Writing k v (t m)
---   where
---     store  k v = lift $ store  k v
+instance
+    ( Writing k v m
+    , MonadThrow m
+    , MonadThrow (t m)
+    , MonadTrans t
+    , Show k
+    , Typeable k
+    )
+  =>
+      Writing k v (t m)
+  where
+    store  k v = lift $ store  k v
 
 instance {-# OVERLAPPING #-} Reading Address Account M where
     tryGet address = do
@@ -123,11 +124,11 @@ instance
   where
     apply (CheckNonce a) = do
         Author author nonce <- ask
-        nonce'              <- lift $ retrieves author accountNonce
+        nonce'              <- retrieves author accountNonce
 
         check (nonce == nonce') $ Err "nonce mismatch"
 
-        lift $ touchAccount author
+        touchAccount author
 
         (res, undo) <- apply a
 
@@ -137,9 +138,9 @@ instance
         res <- undo a
 
         Author author nonce <- ask
-        nonce'              <- lift $ retrieves author accountNonce
+        nonce'              <- retrieves author accountNonce
 
-        lift $ unTouchAccount author
+        unTouchAccount author
 
         check (nonce == nonce' - 1) $ Err "nonce mismatch in undo"
 
@@ -159,26 +160,26 @@ instance
   where
     apply action@ (Pay whom howMuch) = do
         Author  author _ <- ask
-        Account _ source <- lift $ retrieve author
+        Account _ source <- retrieve author
 
         check (source >= howMuch) $ Err "author dont have enough money"
         check (author /= whom)    $ Err "can't pay to self"
         check (howMuch > 0)       $ Err "can't pay negative amount"
 
-        p1 <- lift $ changeBalance author (-howMuch)
-        p2 <- lift $ changeBalance whom   ( howMuch)
+        p1 <- changeBalance author (-howMuch)
+        p2 <- changeBalance whom   ( howMuch)
 
         return (p1 <> p2, action)
 
     undo (Pay whom howMuch) = do
         Author  author _ <- ask
-        Account _ source <- lift $ retrieve author
+        Account _ source <- retrieve author
 
         check (author /= whom) $ Err "can't unpay for to self"
         check (howMuch > 0)    $ Err "can't unpay negative amount"
 
-        p1 <- lift $ changeBalance author ( howMuch)
-        p2 <- lift $ changeBalance whom   (-howMuch)
+        p1 <- changeBalance author ( howMuch)
+        p2 <- changeBalance whom   (-howMuch)
 
         return (p1 <> p2)
 
@@ -201,24 +202,24 @@ instance
 
         Author  author _ <- ask
         Miner   miner    <- lift $ asks envMiner
-        Account _ source <- lift $ retrieve author
-        fee              <- lift $ getFee $ length (show a)
+        Account _ source <- retrieve author
+        fee              <- getFee $ length (show a)
 
         check (source > fee) $ Err "can't afford fees"
 
-        p1 <- lift $ changeBalance author (-fee)
-        p2 <- lift $ changeBalance miner  ( fee)
+        p1 <- changeBalance author (-fee)
+        p2 <- changeBalance miner  ( fee)
 
         return (p1 <> p2, PayFees undo)
 
     undo (PayFees a) = do
         Author  author _ <- ask
         Miner   miner    <- lift $ asks envMiner
-        Account _ source <- lift $ retrieve author
-        fee              <- lift $ getFee $ length (show a)
+        Account _ source <- retrieve author
+        fee              <- getFee $ length (show a)
 
-        p1 <- lift $ changeBalance author ( fee)
-        p2 <- lift $ changeBalance miner  (-fee)
+        p1 <- changeBalance author ( fee)
+        p2 <- changeBalance miner  (-fee)
 
         res <- undo a
 
