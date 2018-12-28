@@ -259,30 +259,31 @@ instance
 
 run :: IO Status
 run = do
-    let tx = Provides (Author 2 0) $ PayFees $ CheckNonce [Pay 3 10, Pay 1 55]
+    let tx1 = Provides (Author 2 0) $ PayFees $ CheckNonce [Pay 3 10, Pay 1 55]
+    let tx2 = Provides (Author 2 1) $ PayFees $ CheckNonce [Pay 3 15, Pay 1 10]
 
     test $ do
         st <- get
 
-        liftIO $ putStrLn $ "State: " ++ show (pretty st)
+        liftIO $ putStrLn $ "State:\n" ++ show (nest 4 $ pretty st)
         liftIO $ putStrLn ""
-        liftIO $ putStrLn $ "Applying: " ++ show (pretty tx)
+        liftIO $ putStrLn $ "Applying:\n" ++ show (nest 4 $ pretty [tx1, tx2])
         liftIO $ putStrLn ""
 
-        (res, undoer) <- apply tx
+        (res, undoer) <- apply [tx1, tx2]
 
         st <- get
 
-        liftIO $ putStrLn $ "Applied, state: " ++ show (pretty st)
+        liftIO $ putStrLn $ "Applied, state:\n" ++ show (nest 4 $ pretty st)
         liftIO $ putStrLn ""
-        liftIO $ putStrLn $ "Undoing: " ++ show (pretty undoer)
+        liftIO $ putStrLn $ "Undoing:\n" ++ show (nest 4 $ pretty undoer)
         liftIO $ putStrLn ""
 
         undo undoer
 
         st <- get
 
-        liftIO $ putStrLn $ "Undone, state: " ++ show (pretty st)
+        liftIO $ putStrLn $ "Undone, state:\n" ++ show (nest 4 $ pretty st)
         return ()
 
 test action = do
@@ -291,7 +292,7 @@ test action = do
         `execStateT` Status
             { statusAccounts = Map.fromList
                 [ (1, Account 0 100)
-                , (2, Account 0 120)
+                , (2, Account 0 180)
                 , (3, Account 0 50)
                 ]
             , paymentFees = TheFees 0.1 10
