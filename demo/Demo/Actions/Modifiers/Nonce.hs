@@ -28,12 +28,11 @@ instance
         nonce'              <- retrieves author accountNonce
 
         check (nonce == nonce') $ Err "nonce mismatch"
-
         touchAccount author
 
-        (res, undo) <- apply a
+        (res, undoer) <- apply a
 
-        return (res, CheckNonce undo)
+        return (res, CheckNonce undoer)
 
     undo (CheckNonce a) = do
         res <- undo a
@@ -41,8 +40,7 @@ instance
         Author author nonce <- ask
         nonce'              <- retrieves author accountNonce
 
-        unTouchAccount author
-
         check (nonce == nonce' - 1) $ Err "nonce mismatch in undo"
+        unTouchAccount author
 
         return res

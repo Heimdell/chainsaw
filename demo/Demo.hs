@@ -2,22 +2,16 @@
 -- | Simple demo, showing ability to make payments, pay fees and check nonces.
 --
 
-import Control.Monad.Trans.Class
 import Control.Monad.Reader
 import Control.Monad.State
-import Control.Monad.Identity
-import Control.Monad.Catch
 
-import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Monoid
-import Data.Typeable
 
 import Chainsaw.API
 
 import Demo.Entities
 import Demo.Monad
-import Demo.Access
+import Demo.Access ()
 import Demo.Actions
 
 run :: IO Status
@@ -26,29 +20,28 @@ run = do
     let tx2 = Provides (Author 2 1) $ PayFees $ CheckNonce [Pay 3 15, Pay 1 10]
 
     test $ do
-        st <- get
+        st0 <- get
 
-        liftIO $ putStrLn $ "State:\n" ++ show (nest 4 $ pretty st)
+        liftIO $ putStrLn $ "State:\n" ++ show (nest 4 $ pretty st0)
         liftIO $ putStrLn ""
         liftIO $ putStrLn $ "Applying:\n" ++ show (nest 4 $ pretty [tx1, tx2])
         liftIO $ putStrLn ""
 
-        (res, undoer) <- apply [tx1, tx2]
+        (_, undoer) <- apply [tx1, tx2]
+        st1         <- get
 
-        st <- get
-
-        liftIO $ putStrLn $ "Applied, state:\n" ++ show (nest 4 $ pretty st)
+        liftIO $ putStrLn $ "Applied, state:\n" ++ show (nest 4 $ pretty st1)
         liftIO $ putStrLn ""
         liftIO $ putStrLn $ "Undoing:\n" ++ show (nest 4 $ pretty undoer)
         liftIO $ putStrLn ""
 
-        undo undoer
+        _   <- undo undoer
+        st2 <- get
 
-        st <- get
-
-        liftIO $ putStrLn $ "Undone, state:\n" ++ show (nest 4 $ pretty st)
+        liftIO $ putStrLn $ "Undone, state:\n" ++ show (nest 4 $ pretty st2)
         return ()
 
+test :: M a -> IO Status
 test action = do
     action
         `runReaderT` Env (Miner 1)
@@ -61,4 +54,5 @@ test action = do
             , paymentFees = TheFees 0.1 10
             }
 
+main :: IO ()
 main = run >>= print

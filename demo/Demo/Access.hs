@@ -3,7 +3,6 @@ module Demo.Access where
 
 import Control.Monad.Reader
 import Control.Monad.State
-import Data.Map (Map)
 import qualified Data.Map as Map
 
 import Chainsaw.API
