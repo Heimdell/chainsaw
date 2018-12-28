@@ -110,42 +110,6 @@ changeBalance  addr d = do
     change addr $ \acc -> acc { accountBalance = accountBalance acc + d }
     return $ Map.singleton addr acc
 
----- Domain-related Wrappers --------------------------------------------------
-
-newtype CheckNonce a = CheckNonce a deriving Show
-
-instance
-    ( Apply a undo (ReaderT Author m) r
-    , Access Address Account m
-    , MonadCatch m
-    )
-  =>
-      Apply (CheckNonce a) (CheckNonce undo) (ReaderT Author m) r
-  where
-    apply (CheckNonce a) = do
-        Author author nonce <- ask
-        nonce'              <- retrieves author accountNonce
-
-        check (nonce == nonce') $ Err "nonce mismatch"
-
-        touchAccount author
-
-        (res, undo) <- apply a
-
-        return (res, CheckNonce undo)
-
-    undo (CheckNonce a) = do
-        res <- undo a
-
-        Author author nonce <- ask
-        nonce'              <- retrieves author accountNonce
-
-        unTouchAccount author
-
-        check (nonce == nonce' - 1) $ Err "nonce mismatch in undo"
-
-        return res
-
 ---- Transaction --------------------------------------------------------------
 
 data Pay = Pay { payWhom :: Address, payHowMuch :: Int }
@@ -182,6 +146,42 @@ instance
         p2 <- changeBalance whom   (-howMuch)
 
         return (p1 <> p2)
+
+---- Domain-related Wrappers --------------------------------------------------
+
+newtype CheckNonce a = CheckNonce a deriving Show
+
+instance
+    ( Apply a undo (ReaderT Author m) r
+    , Access Address Account m
+    , MonadCatch m
+    )
+  =>
+      Apply (CheckNonce a) (CheckNonce undo) (ReaderT Author m) r
+  where
+    apply (CheckNonce a) = do
+        Author author nonce <- ask
+        nonce'              <- retrieves author accountNonce
+
+        check (nonce == nonce') $ Err "nonce mismatch"
+
+        touchAccount author
+
+        (res, undo) <- apply a
+
+        return (res, CheckNonce undo)
+
+    undo (CheckNonce a) = do
+        res <- undo a
+
+        Author author nonce <- ask
+        nonce'              <- retrieves author accountNonce
+
+        unTouchAccount author
+
+        check (nonce == nonce' - 1) $ Err "nonce mismatch in undo"
+
+        return res
 
 ---- Fee payment --------------------------------------------------------------
 
