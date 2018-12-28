@@ -1,5 +1,6 @@
 
-module Action.Provides where
+-- | Reader-like wrapper.
+module Chainsaw.API.Action.Provides where
 
 import Control.Monad.Trans.Reader
 
@@ -8,11 +9,18 @@ import Data.Foldable
 
 import GHC.Generics
 
-import API
+import Chainsaw.API.Apply
 
+-- | Carrier of thing to be provided.
 data Provides e a = Provides e a
     deriving (Show, Generic)
 
+-- | This instance allows to push thing, carried by `Provides`
+--   into `ReaderT` context for the underlying action.
+--
+--   For instance: if you have some @Author@, you can provide it,
+--   and `ask` for it in underlying action's `apply`.
+--
 instance
     ( Apply a undo (ReaderT e m) res
     , Monad m

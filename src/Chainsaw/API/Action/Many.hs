@@ -1,5 +1,6 @@
 
-module Action.Many where
+-- | Kleene star combination.
+module Chainsaw.API.Action.Many where
 
 import Control.Arrow
 
@@ -7,8 +8,10 @@ import Data.Traversable
 import Data.Foldable
 import Data.Monoid
 
-import API
+import Chainsaw.API.Apply
 
+-- | This instance allows to run a sequence of operations of one type.
+--
 instance
     ( Apply a undo m res
     , Monoid res

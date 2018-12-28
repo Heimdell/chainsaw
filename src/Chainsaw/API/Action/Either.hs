@@ -1,8 +1,11 @@
 
-module Action.Either where
+-- | Sum combination.
+module Chainsaw.API.Action.Either where
 
-import API
+import Chainsaw.API.Apply
 
+-- | This instance allows to apply either of two actions.
+--
 instance
     ( Apply a undoA m res
     , Apply b undoB m res

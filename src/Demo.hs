@@ -1,5 +1,6 @@
 
-module Demo where
+-- | Simple demo, showing ability to make payments, pay fees and check nonces.
+--
 
 import Control.Monad.Trans.Class
 import Control.Monad.Reader
@@ -12,8 +13,7 @@ import qualified Data.Map as Map
 import Data.Monoid
 import Data.Typeable
 
-import API
-import Action
+import Chainsaw.API
 
 ---- Domain Types -------------------------------------------------------------
 
@@ -87,15 +87,19 @@ instance {-# OVERLAPPING #-}
     tryGet Fees = do
         Just <$> lift (gets paymentFees)
 
--- Actions over accounts
+-- | Increment nonce.
 touchAccount   addr = change addr $ \acc -> acc { accountNonce = accountNonce acc + 1 }
+
+-- | Decrement nonce.
 unTouchAccount addr = change addr $ \acc -> acc { accountNonce = accountNonce acc - 1 }
 
+-- | Change account balance (returns excerpt of state).
 changeBalance addr d = do
     acc <- retrieve addr
     change addr $ \acc -> acc { accountBalance = accountBalance acc + d }
     return $ Map.singleton addr acc
 
+-- | Calculate fee for given tx size.
 getFee :: Reading Fees TheFees m => Int -> m Int
 getFee txSize = do
     TheFees { k, c } <- retrieve Fees
@@ -109,6 +113,7 @@ data Pay = Pay
     }
     deriving Show
 
+-- | Monad for `Pay` to be run in.
 type PayM = ReaderT Author M
 
 instance
@@ -238,8 +243,10 @@ test action = do
         `execStateT` Status
             { statusAccounts = Map.fromList
                 [ (1, Account 0 100)
-                , (2, Account 0 220)
+                , (2, Account 0 120)
                 , (3, Account 0 50)
                 ]
-            , paymentFees = TheFees 1 10
+            , paymentFees = TheFees 0.1 10
             }
+
+main = run >>= print
