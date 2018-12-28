@@ -63,33 +63,6 @@ type Proof = Map Address Account
 
 ---- On-chain access ----------------------------------------------------------
 
--- This instance will autolift the access
-instance
-    ( Reading k v m
-    , MonadThrow m
-    , MonadThrow (t m)
-    , MonadTrans t
-    , Show k
-    , Typeable k
-    )
-  =>
-      Reading k v (t m)
-  where
-    tryGet k   = lift $ tryGet k
-
-instance
-    ( Writing k v m
-    , MonadThrow m
-    , MonadThrow (t m)
-    , MonadTrans t
-    , Show k
-    , Typeable k
-    )
-  =>
-      Writing k v (t m)
-  where
-    store  k v = lift $ store  k v
-
 instance {-# OVERLAPPING #-} Reading Address Account M where
     tryGet address = do
         Map.lookup address <$> lift (gets statusAccounts)

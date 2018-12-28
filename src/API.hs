@@ -3,6 +3,7 @@ module API where
 
 import Control.Exception
 import Control.Monad.Catch
+import Control.Monad.Trans.Class
 
 import Data.Typeable
 
@@ -26,6 +27,33 @@ class (MonadThrow m, Show k, Typeable k) => Writing k v m where
     store  :: k -> v -> m ()
 
 type Access k v m = (Reading k v m, Writing k v m)
+
+-- This instance will autolift the access
+instance
+    ( Reading k v m
+    , MonadThrow m
+    , MonadThrow (t m)
+    , MonadTrans t
+    , Show k
+    , Typeable k
+    )
+  =>
+      Reading k v (t m)
+  where
+    tryGet k   = lift $ tryGet k
+
+instance
+    ( Writing k v m
+    , MonadThrow m
+    , MonadThrow (t m)
+    , MonadTrans t
+    , Show k
+    , Typeable k
+    )
+  =>
+      Writing k v (t m)
+  where
+    store  k v = lift $ store  k v
 
 data NotFound k = NotFound k
     deriving (Show)
