@@ -33,11 +33,6 @@ type Nonce = Integer
 data TheFees = TheFees { k :: Float, c :: Int }
     deriving Show
 
-getFee :: Reading Fees TheFees m => Int -> m Int
-getFee txSize = do
-    TheFees { k, c } <- retrieve Fees
-    return $ c + round (k * fromIntegral txSize)
-
 ---- Helper Types -------------------------------------------------------------
 
 data Env = Env
@@ -89,6 +84,11 @@ changeBalance addr d = do
     acc <- retrieve addr
     change addr $ \acc -> acc { accountBalance = accountBalance acc + d }
     return $ Map.singleton addr acc
+
+getFee :: Reading Fees TheFees m => Int -> m Int
+getFee txSize = do
+    TheFees { k, c } <- retrieve Fees
+    return $ c + round (k * fromIntegral txSize)
 
 ---- Transaction --------------------------------------------------------------
 
