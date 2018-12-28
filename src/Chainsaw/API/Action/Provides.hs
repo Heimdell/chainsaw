@@ -10,10 +10,17 @@ import Data.Foldable
 import GHC.Generics
 
 import Chainsaw.API.Apply
+import Chainsaw.API.PrettyPrint
 
 -- | Carrier of thing to be provided.
-data Provides e a = Provides e a
+data Provides e a = Provides { providesPayload :: e, providesAction :: a }
     deriving (Show, Generic)
+
+instance (Show e, Pretty a) => Pretty (Provides e a) where
+    pretty (Provides e a) = hang (text "Provides") 4 $
+        hang (text "{ payload =") 4 (text $ show e) $$
+        hang (text ", action =") 4 (pretty a) $$
+        text "}"
 
 -- | This instance allows to push thing, carried by `Provides`
 --   into `ReaderT` context for the underlying action.

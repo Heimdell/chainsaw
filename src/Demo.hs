@@ -4,7 +4,7 @@
 
 import Control.Monad.Trans.Class
 import Control.Monad.Reader
-import Control.Monad.Trans.State
+import Control.Monad.State
 import Control.Monad.Identity
 import Control.Monad.Catch
 
@@ -56,6 +56,21 @@ data Status = Status
     , paymentFees    :: TheFees
     }
     deriving Show
+
+instance Pretty Status where
+    pretty (Status accs (TheFees { k, c })) =
+        block "Status"
+            [ "statusAccounts" =: prettyAccs
+            , "paymentFees"    =: prettyFees
+            ]
+      where
+        prettyAccs = hang (text "Map.fromList") 4 (list $ map (text . show) $ Map.toList accs)
+
+        prettyFees =
+            block "TheFees"
+                [ "k" =: float k
+                , "c" =: int c
+                ]
 
 data Fees = Fees
     deriving Show
@@ -113,6 +128,13 @@ data Pay = Pay
     }
     deriving Show
 
+instance Pretty Pay where
+    pretty (Pay whom howMuch) =
+        block "Pay"
+            [ "whom"    =: int whom
+            , "howMuch" =: int howMuch
+            ]
+
 -- | Monad for `Pay` to be run in.
 type PayM = ReaderT Author M
 
@@ -151,6 +173,10 @@ instance
 newtype CheckNonce a = CheckNonce a
     deriving Show
 
+instance Pretty a => Pretty (CheckNonce a) where
+    pretty (CheckNonce a) =
+        wrap "CheckNonce" (pretty a)
+
 instance
     ( Apply a undo (ReaderT Author m) r
     , Access Address Account m
@@ -187,6 +213,10 @@ instance
 
 data PayFees a = PayFees a
     deriving Show
+
+instance Pretty a => Pretty (PayFees a) where
+    pretty (PayFees a) =
+        wrap "PayFees" (pretty a)
 
 instance
     ( Apply a undo (ReaderT Author m) Proof
@@ -228,13 +258,31 @@ instance
 ---- Testing Area -------------------------------------------------------------
 
 run :: IO Status
-run =
+run = do
+    let tx = Provides (Author 2 0) $ PayFees $ CheckNonce [Pay 3 10, Pay 1 55]
+
     test $ do
-        (res, undoer) <- apply $ Provides (Author 2 0) $ PayFees $
-            CheckNonce
-                [ Pay 3 10
-                , Pay 1 55
-                ]
+        st <- get
+
+        liftIO $ putStrLn $ "Applying: " ++ show (pretty tx)
+        liftIO $ putStrLn ""
+        liftIO $ putStrLn $ "State: " ++ show (pretty st)
+        liftIO $ putStrLn ""
+
+        (res, undoer) <- apply tx
+
+        st <- get
+
+        liftIO $ putStrLn $ "Applied, state: " ++ show (pretty st)
+        liftIO $ putStrLn ""
+        liftIO $ putStrLn $ "Undoing: " ++ show (pretty undoer)
+        liftIO $ putStrLn ""
+
+        undo undoer
+
+        st <- get
+
+        liftIO $ putStrLn $ "Undone, state: " ++ show (pretty st)
         return ()
 
 test action = do

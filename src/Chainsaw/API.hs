@@ -20,6 +20,7 @@ module Chainsaw.API
     , -- * Application of txs
       Apply (..)
     , Provides (..)
+    , module Pretty
     )
     where
 
@@ -27,3 +28,4 @@ import Chainsaw.API.Apply (Apply (..))
 import Chainsaw.API.Access (Reading (..), Writing (..), Access, retrieve, retrieves, change)
 import Chainsaw.API.Errors (check, Err (..))
 import Chainsaw.API.Action (Provides (..))
+import Chainsaw.API.PrettyPrint as Pretty
