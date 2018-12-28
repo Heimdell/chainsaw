@@ -19,8 +19,16 @@ import Action
 
 type Address = Int
 
-data    Author = Author { theAuthor :: Address, authorNonce :: Nonce } deriving Show
-newtype Miner  = Miner  { getMiner  :: Address } deriving Show
+data Author = Author
+    { theAuthor   :: Address
+    , authorNonce :: Nonce
+    }
+    deriving Show
+
+newtype Miner = Miner
+    { getMiner :: Address
+    }
+    deriving Show
 
 data Account = Account
     { accountNonce   :: Nonce
@@ -30,7 +38,10 @@ data Account = Account
 
 type Nonce = Integer
 
-data TheFees = TheFees { k :: Float, c :: Int }
+data TheFees = TheFees
+    { k :: Float
+    , c :: Int
+    }
     deriving Show
 
 ---- Helper Types -------------------------------------------------------------
@@ -92,7 +103,10 @@ getFee txSize = do
 
 ---- Transaction --------------------------------------------------------------
 
-data Pay = Pay { payWhom :: Address, payHowMuch :: Int }
+data Pay = Pay
+    { payWhom    :: Address
+    , payHowMuch :: Int
+    }
     deriving Show
 
 type PayM = ReaderT Author M
@@ -129,7 +143,8 @@ instance
 
 ---- Domain-related Wrappers --------------------------------------------------
 
-newtype CheckNonce a = CheckNonce a deriving Show
+newtype CheckNonce a = CheckNonce a
+    deriving Show
 
 instance
     ( Apply a undo (ReaderT Author m) r
