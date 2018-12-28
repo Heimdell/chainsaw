@@ -2,7 +2,7 @@
 module Demo where
 
 import Control.Monad.Trans.Class
-import Control.Monad.Trans.Reader
+import Control.Monad.Reader
 import Control.Monad.Trans.State
 import Control.Monad.Identity
 import Control.Monad.Catch
@@ -24,11 +24,18 @@ newtype Miner  = Miner  { getMiner  :: Address } deriving Show
 
 data Account = Account
     { accountNonce   :: Nonce
-    , accountBalance :: Integer
+    , accountBalance :: Int
     }
     deriving Show
 
 type Nonce = Integer
+
+data TheFees = TheFees { k :: Float, c :: Int }
+    deriving Show
+
+getFee txSize = do
+    TheFees { k, c } <- retrieve Fees
+    return $ c + round (k * fromIntegral txSize)
 
 ---- Helper Types -------------------------------------------------------------
 
@@ -39,50 +46,60 @@ data Env = Env
 
 data Status = Status
     { statusAccounts :: Map Address Account
+    , paymentFees    :: TheFees
     }
     deriving Show
 
+data Fees = Fees
+    deriving Show
+
 withStatusAccounts :: (Map Address Account -> Map Address Account) -> Status -> Status
-withStatusAccounts f (Status a) = Status (f a)
+withStatusAccounts f (Status a pf) = Status (f a) pf
 
 type M = ReaderT Env (StateT Status IO)
 
 type Proof = Map Address Account
 
----- Utils --------------------------------------------------------------------
-
-check :: (Exception e, MonadThrow m) => Bool -> e -> m ()
-check True _ = return ()
-check _    e = throwM e
-
-data Err = Err String
-    deriving Show
-
-instance Exception Err
-
 ---- On-chain access ----------------------------------------------------------
 
 -- This instance will autolift the access
-instance
-    ( Access k v m
-    , MonadThrow m
-    , MonadThrow (t m)
-    , MonadTrans t
-    , Show k
-    , Typeable k
-    )
-  =>
-      Access k v (t m)
-  where
-    tryGet k   = lift $ tryGet k
-    store  k v = lift $ store  k v
+-- instance
+--     ( Access k v m
+--     , MonadThrow m
+--     , MonadThrow (t m)
+--     , MonadTrans t
+--     , Show k
+--     , Typeable k
+--     )
+--   =>
+--       Reading k v (t m)
+--   where
+--     tryGet k   = lift $ tryGet k
 
-instance {-# OVERLAPPING #-} Access Address Account M where
+-- instance
+--     ( Access k v m
+--     , MonadThrow m
+--     , MonadThrow (t m)
+--     , MonadTrans t
+--     , Show k
+--     , Typeable k
+--     )
+--   =>
+--       Writing k v (t m)
+--   where
+--     store  k v = lift $ store  k v
+
+instance {-# OVERLAPPING #-} Reading Address Account M where
     tryGet address = do
         Map.lookup address <$> lift (gets statusAccounts)
 
+instance {-# OVERLAPPING #-} Writing Address Account M where
     store address account = do
         lift $ modify $ withStatusAccounts $ Map.insert address account
+
+instance {-# OVERLAPPING #-} Reading Fees TheFees M where
+    tryGet Fees = do
+        Just <$> lift (gets paymentFees)
 
 -- Actions over accounts
 touchAccount   addr   = change addr $ \acc -> acc { accountNonce   = accountNonce   acc + 1 }
@@ -106,11 +123,11 @@ instance
   where
     apply (CheckNonce a) = do
         Author author nonce <- ask
-        nonce'              <- retrieves author accountNonce
+        nonce'              <- lift $ retrieves author accountNonce
 
         check (nonce == nonce') $ Err "nonce mismatch"
 
-        touchAccount author
+        lift $ touchAccount author
 
         (res, undo) <- apply a
 
@@ -120,9 +137,9 @@ instance
         res <- undo a
 
         Author author nonce <- ask
-        nonce'              <- retrieves author accountNonce
+        nonce'              <- lift $ retrieves author accountNonce
 
-        unTouchAccount author
+        lift $ unTouchAccount author
 
         check (nonce == nonce' - 1) $ Err "nonce mismatch in undo"
 
@@ -130,7 +147,7 @@ instance
 
 ---- Transaction --------------------------------------------------------------
 
-data Pay = Pay { payWhom :: Address, payHowMuch :: Integer }
+data Pay = Pay { payWhom :: Address, payHowMuch :: Int }
     deriving Show
 
 type PayM = ReaderT Author M
@@ -142,60 +159,68 @@ instance
   where
     apply action@ (Pay whom howMuch) = do
         Author  author _ <- ask
-        Account _ source <- retrieve author
+        Account _ source <- lift $ retrieve author
 
         check (source >= howMuch) $ Err "author dont have enough money"
         check (author /= whom)    $ Err "can't pay to self"
         check (howMuch > 0)       $ Err "can't pay negative amount"
 
-        p1 <- changeBalance author (-howMuch)
-        p2 <- changeBalance whom   ( howMuch)
+        p1 <- lift $ changeBalance author (-howMuch)
+        p2 <- lift $ changeBalance whom   ( howMuch)
 
         return (p1 <> p2, action)
 
     undo (Pay whom howMuch) = do
         Author  author _ <- ask
-        Account _ source <- retrieve author
+        Account _ source <- lift $ retrieve author
 
         check (author /= whom) $ Err "can't unpay for to self"
         check (howMuch > 0)    $ Err "can't unpay negative amount"
 
-        p1 <- changeBalance author ( howMuch)
-        p2 <- changeBalance whom   (-howMuch)
+        p1 <- lift $ changeBalance author ( howMuch)
+        p2 <- lift $ changeBalance whom   (-howMuch)
 
         return (p1 <> p2)
 
 ---- Fee payment --------------------------------------------------------------
 
-data PayFees = PayFees
+data PayFees a = PayFees a
     deriving Show
 
 instance
-    ( Access Address Account (ReaderT Env m)
-    , Monad m
+    ( Apply a undo (ReaderT Author m) Proof
+    , Access Address Account m
+    , Reading Fees TheFees m
+    , MonadReader Env m
     )
   =>
-      Apply PayFees PayFees (ReaderT Author (ReaderT Env m)) Proof
+      Apply (PayFees a) (PayFees undo) (ReaderT Author m) Proof
   where
-    apply PayFees = do
+    apply (PayFees a) = do
+        (res, undo) <- apply a
+
         Author  author _ <- ask
         Miner   miner    <- lift $ asks envMiner
-        Account _ source <- retrieve author
+        Account _ source <- lift $ retrieve author
+        fee              <- lift $ getFee $ length (show a)
 
-        check (source > 5) $ Err "can't afford fees"
+        check (source > fee) $ Err "can't afford fees"
 
-        p1 <- changeBalance author (-5)
-        p2 <- changeBalance miner  ( 5)
+        p1 <- lift $ changeBalance author (-fee)
+        p2 <- lift $ changeBalance miner  ( fee)
 
-        return (p1 <> p2, PayFees)
+        return (p1 <> p2, PayFees undo)
 
-    undo PayFees = do
+    undo (PayFees a) = do
         Author  author _ <- ask
         Miner   miner    <- lift $ asks envMiner
-        Account _ source <- retrieve author
+        Account _ source <- lift $ retrieve author
+        fee              <- lift $ getFee $ length (show a)
 
-        p1 <- changeBalance author ( 5)
-        p2 <- changeBalance miner  (-5)
+        p1 <- lift $ changeBalance author ( fee)
+        p2 <- lift $ changeBalance miner  (-fee)
+
+        res <- undo a
 
         return (p1 <> p2)
 
@@ -204,14 +229,12 @@ instance
 run :: IO Status
 run =
     test $ do
-        (res, undoer) <- apply $ Provides (Author 2 0)
-            ( CheckNonce
+        (res, undoer) <- apply $ Provides (Author 2 0) $ PayFees $
+            CheckNonce
                 [ Pay 3 10
                 , Pay 1 55
                 ]
-            , PayFees
-            )
-        undo undoer
+        return ()
 
 test action = do
     action
@@ -219,7 +242,8 @@ test action = do
         `execStateT` Status
             { statusAccounts = Map.fromList
                 [ (1, Account 0 100)
-                , (2, Account 0 120)
+                , (2, Account 0 220)
                 , (3, Account 0 50)
                 ]
+            , paymentFees = TheFees 1 10
             }
