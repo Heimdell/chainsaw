@@ -19,14 +19,12 @@ instance Pretty p => Pretty [p] where
 
 wrap :: String -> Doc -> Doc
 wrap header item =
-    hang (hang (text header <+> text "(") 4 item) 0 (text ")")
-  where
-    aux [] = [text "{}"]
-    aux (x : xs) = [text "{" <+> x] ++ map (text "," <+>) xs ++ [text "}"]
+    hang (hang (text header <+> text "(") 4 item) 0
+        (text ")")
 
 block :: String -> [Doc] -> Doc
 block header items =
-    hang (text header) 4 $
+    hang (text header) 2 $
         vcat (aux items)
   where
     aux [] = [text "{}"]

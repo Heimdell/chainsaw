@@ -7,7 +7,7 @@ module Chainsaw.API.Action
     )
     where
 
-import Chainsaw.API.Action.Either
-import Chainsaw.API.Action.And
-import Chainsaw.API.Action.Many
+import Chainsaw.API.Action.Either ()
+import Chainsaw.API.Action.And ()
+import Chainsaw.API.Action.Many ()
 import Chainsaw.API.Action.Provides

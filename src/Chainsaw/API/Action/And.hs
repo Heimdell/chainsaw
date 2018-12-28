@@ -3,8 +3,6 @@
 --
 module Chainsaw.API.Action.And where
 
-import Data.Monoid
-
 import Chainsaw.API.Apply
 
 -- | This instance allows to apply two actions sequentally and

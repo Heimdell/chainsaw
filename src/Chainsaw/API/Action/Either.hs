@@ -14,12 +14,12 @@ instance
       Apply (Either a b) (Either undoA undoB) m res
   where
     apply (Left l) = do
-        (res, undo) <- apply l
-        return (res, Left undo)
+        (res, undoer) <- apply l
+        return (res, Left undoer)
 
     apply (Right r) = do
-        (res, undo) <- apply r
-        return (res, Right undo)
+        (res, undoer) <- apply r
+        return (res, Right undoer)
 
     undo (Left  l) = undo l
     undo (Right r) = undo r

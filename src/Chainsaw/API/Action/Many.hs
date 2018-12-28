@@ -5,8 +5,6 @@ module Chainsaw.API.Action.Many where
 import Control.Arrow
 
 import Data.Traversable
-import Data.Foldable
-import Data.Monoid
 
 import Chainsaw.API.Apply
 

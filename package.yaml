@@ -1,0 +1,52 @@
+name: chainsaw
+version: 0.0.1
+synopsis: Simple blockchain framework
+maintainer: Kirill Andreev <hindmost.one@gmail.com>
+github: Heimdell/chainsaw
+
+ghc-options: -Wall
+
+dependencies:
+  - base
+  - containers
+  - transformers
+  - mtl
+  - exceptions
+  - pretty
+
+library:
+  source-dirs: src
+  exposed-modules:
+    - Chainsaw.API
+  default-extensions:
+    - MultiParamTypeClasses
+    - ConstraintKinds
+    - FlexibleInstances
+    - FunctionalDependencies
+    - UndecidableInstances
+    - DeriveGeneric
+    - NamedFieldPuns
+    - FlexibleContexts
+  ghc-options:
+    - -fno-warn-orphans
+
+executables:
+  chainsaw-demo:
+    main: Demo.hs
+    source-dirs: demo
+    dependencies:
+      - base
+      - chainsaw
+      - containers
+      - transformers
+      - mtl
+      - exceptions
+    default-extensions:
+      - NamedFieldPuns
+      - FlexibleContexts
+      - TypeSynonymInstances
+      - FlexibleInstances
+      - MultiParamTypeClasses
+      - UndecidableInstances
+    ghc-options:
+      - -fno-warn-orphans

@@ -1,1 +1,3 @@
 dist
+chainsaw.cabal
+.stack-work
